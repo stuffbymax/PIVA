@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+database.db
+uploads/*
+thumbnails/*
+!uploads/.gitkeep
+!thumbnails/.gitkeep
+.env
+venv/

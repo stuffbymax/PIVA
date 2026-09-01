@@ -1,225 +1,181 @@
-# Self-Hosted Photos Backend (Prototype)
+# Photo Backend (Google Photos–style API)
 
-A Flask + SQLite + MinIO backend for a self-hosted, Google Photos-style
-backup service. This repo currently contains the **backend only** —
-no Docker, no containers. Everything runs directly on the host.
+A Flask REST API backend for a photo-backup app, built for a Flutter
+frontend. It supports upload, delta sync, favorites, trash/restore,
+permanent delete, and albums — the core feature set of Google Photos.
 
-```
-phone (Flutter, not in this checkout) → backup queue → Flask → MinIO → SQLite → gallery
-```
+This is a from-scratch rewrite, not a patch of the PS3-sharing site you
+shared. That app used server-rendered HTML pages and cookie sessions,
+which don't make sense for a Flutter client — Flutter needs a JSON API
+with token auth it can call from Dart, so that's what this is.
+
+## Why it's structured this way
+
+- **JWT auth, not sessions.** Mobile apps can't rely on cookies the way
+  a browser does. Every request instead carries an `Authorization:
+  Bearer <token>` header. A short-lived access token (1h) plus a
+  long-lived refresh token (90d) means the user logs in once and the
+  app quietly refreshes in the background after that.
+- **Delta sync (`/sync`), not just a list endpoint.** Google Photos
+  doesn't re-download your whole library every time you open the app —
+  it asks "what changed since I last checked?" `/sync?since=<time>`
+  does exactly that, returning only new/edited/deleted items. This is
+  the piece that makes an offline-first Flutter app (using something
+  like `sqflite` or `drift` locally) actually pleasant to build.
+- **Soft delete -> Trash -> permanent delete**, matching the real
+  Google Photos flow: deleting doesn't destroy anything immediately; it
+  moves the item to Trash. A separate "permanent delete" (or emptying
+  Trash) actually removes the file bytes and turns the DB row into a
+  tombstone, so other devices find out via `/sync` that the item is
+  really gone instead of just never hearing about it again.
+- **Checksum-based dedup.** Every upload is SHA-256 hashed. Re-uploading
+  the same photo (e.g. after a reinstall, or a flaky connection retrying)
+  doesn't create a duplicate — the server just returns the existing
+  record. `/media/check` lets the client batch-check checksums *before*
+  uploading, so a camera-roll sync only sends bytes for photos that are
+  genuinely new.
 
 ## Project layout
 
 ```
-.
-├── backend/            Flask application
-│   ├── app/
-│   │   ├── models/      SQLAlchemy models (User, Media, TokenBlocklist)
-│   │   ├── routes/      HTTP endpoints (auth, media)
-│   │   ├── services/    Business logic (auth, media, MinIO, thumbnails)
-│   │   └── utils/       Hashing + consistent JSON error handling
-│   ├── tests/           pytest suite (MinIO is mocked, no server needed)
-│   ├── requirements.txt
-│   └── run.py           Entrypoint
-├── data/                 Created at init time: data/app.db, data/minio/
-├── schema.sql            Standalone SQL schema (mirrors the SQLAlchemy models)
-├── ini.py                Initializes SQLite; safe to re-run
-├── .env.example
-├── API.md                Full endpoint reference with curl examples
-└── README.md
+photobackend/
+├── app.py              # app factory, blueprint registration, /health, /storage
+├── config.py            # all settings in one place
+├── extensions.py         # db, jwt singletons
+├── models.py             # User, Media, Album, AlbumMedia
+├── utils.py              # checksums, thumbnailing, EXIF extraction
+├── routes/
+│   ├── auth.py           # register/login/refresh/me
+│   ├── media.py           # upload/list/download/thumbnail/favorite/trash/delete
+│   ├── albums.py          # album CRUD + membership
+│   └── sync.py            # delta sync
+├── uploads/               # original files live here
+├── thumbnails/            # generated JPEG thumbnails
+├── requirements.txt
+└── .env.example
 ```
 
-## 1. Install Python dependencies
-
-Requires Python 3.10+.
+## Setup
 
 ```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+cd photobackend
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env   # then edit the two secret keys
+python app.py           # dev server on http://0.0.0.0:5009
 ```
 
-## 2. Configure environment variables
-
-From the **project root** (not inside `backend/`):
+For production, don't use `app.run()` — run behind gunicorn/nginx:
 
 ```bash
-cp .env.example .env
+gunicorn -w 4 -b 0.0.0.0:5009 app:app
 ```
 
-Open `.env` and adjust `JWT_SECRET_KEY` at minimum. Defaults otherwise
-work for local development. `backend/run.py` auto-discovers this `.env`
-file even though it's launched from inside `backend/`.
+and put nginx (or similar) in front for TLS and to serve large file
+uploads efficiently. Also switch `DATABASE_URL` to Postgres for
+anything beyond a single-user hobby deployment — SQLite's single-writer
+lock will bottleneck concurrent uploads.
 
-## 3. Initialize SQLite
+## API reference
 
-From the project root:
+All endpoints except `/auth/register` and `/auth/login` require:
+`Authorization: Bearer <access_token>`
 
-```bash
-python ini.py
-```
+### Auth
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| POST | `/auth/register` | `username, password, email?` | Returns `access_token` + `refresh_token` |
+| POST | `/auth/login` | `username, password` | Same as above |
+| POST | `/auth/refresh` | — | Send the **refresh** token as Bearer; returns a new access token |
+| GET | `/auth/me` | — | Current user + storage usage |
 
-This creates `data/` (and `data/minio/`) if missing, and applies
-`schema.sql` to create the `users`, `media`, and `token_blocklist`
-tables. It's safe to run again later — it never drops or truncates
-existing tables or data.
+### Media
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/media/upload` | multipart `file`, optional `taken_at` (unix epoch). Dedupes by checksum. |
+| POST | `/media/check` | body `{"checksums": [...]}` → which already exist, for pre-upload filtering |
+| GET | `/media?page=&per_page=&trashed=&favorites=` | Paginated grid |
+| GET | `/media/<id>` | Single item's metadata |
+| GET | `/media/<id>/file` | Download/stream original bytes |
+| GET | `/media/<id>/thumbnail` | JPEG thumbnail (photos only currently) |
+| POST | `/media/<id>/favorite` | body `{"favorite": true}` or omit to toggle |
+| DELETE | `/media/<id>` | Moves to Trash (soft delete) |
+| POST | `/media/<id>/restore` | Restores from Trash |
+| DELETE | `/media/<id>/permanent` | Frees storage, leaves a sync tombstone |
+| POST | `/media/trash/empty` | Permanently deletes everything in Trash |
 
-You can point it at a different location if needed:
+### Albums
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/albums` | List albums (no items) |
+| POST | `/albums` | body `{"name": "..."}` |
+| GET | `/albums/<id>` | Album + its items |
+| PATCH | `/albums/<id>` | body `name?`, `cover_media_id?` |
+| DELETE | `/albums/<id>` | Deletes the album, not the photos in it |
+| POST | `/albums/<id>/items` | body `{"media_ids": [1,2,3]}` |
+| DELETE | `/albums/<id>/items/<media_id>` | Remove one item from the album |
 
-```bash
-python ini.py --db-path data/app.db --schema schema.sql
-```
+### Sync & misc
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/sync?since=<epoch>` | Delta sync — see below |
+| GET | `/storage` | `used_bytes` / `quota_bytes` |
+| GET | `/health` | Liveness check |
 
-## 4. Install and start MinIO (no Docker)
-
-Download the native MinIO server binary for your platform from
-https://min.io/download (or via your package manager), then run it
-directly against the project's data directory:
-
-```bash
-# Linux example
-wget https://dl.min.io/server/minio/release/linux-amd64/minio
-chmod +x minio
-./minio server ./data/minio --console-address ":9001"
-```
-
-* MinIO API: `http://localhost:9000`
-* MinIO Console (web UI): `http://localhost:9001`
-* Default console credentials: `minioadmin` / `minioadmin` (matches
-  `.env.example` — change both if this ever leaves your machine)
-
-Leave this running in its own terminal.
-
-## 5. Create the MinIO bucket
-
-The Flask app tries to create the `photos` bucket automatically on
-startup if it doesn't exist (see `app/services/minio_service.py`). If
-you'd rather do it explicitly:
-
-```bash
-# using the MinIO Client (mc)
-mc alias set local http://localhost:9000 minioadmin minioadmin
-mc mb local/photos
-```
-
-Or just open the console at `http://localhost:9001` and create a
-bucket named `photos` there.
-
-## 6. Start Flask
-
-In a second terminal, with the virtualenv activated:
-
-```bash
-cd backend
-python run.py
-```
-
-Flask listens on `http://localhost:5000` by default. Check it's alive:
-
-```bash
-curl http://localhost:5000/health
-# {"status": "ok"}
-```
-
-If MinIO isn't running yet, Flask still starts (it logs a warning);
-upload requests will return a `STORAGE_UNAVAILABLE` (503) error until
-MinIO is reachable.
-
-## 7. Create an account and try the API
-
-```bash
-curl -X POST http://localhost:5000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"you@example.com","password":"password123"}'
-
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"you@example.com","password":"password123"}'
-# copy the access_token from the response
-
-curl -H "Authorization: Bearer TOKEN" \
-  -F "file=@/path/to/photo.jpg" \
-  http://localhost:5000/api/media/upload
-
-curl -H "Authorization: Bearer TOKEN" http://localhost:5000/api/media
-```
-
-See `API.md` for the full endpoint reference.
-
-## 8. Configuring a mobile client
-
-Whatever client connects to this backend just needs:
-
-* The base URL, e.g. `http://<your-machine-ip>:5000` (not `localhost`,
-  if the client is a phone on the same network).
-* To call `/api/auth/register` and `/api/auth/login`, store the
-  returned `access_token`, and send it as `Authorization: Bearer
-  <token>` on every `/api/media/*` request.
-* To upload files as `multipart/form-data` to `/api/media/upload`
-  with the file in a field named `file`.
-
-The API never expects or accepts a `user_id` from the client — it's
-always derived from the JWT.
-
-## 9. Inspecting SQLite
-
-The database is a plain file at `data/app.db`. Inspect it with the
-`sqlite3` CLI or any SQLite GUI:
-
-```bash
-sqlite3 data/app.db
-sqlite> .tables
-sqlite> SELECT id, email, created_at FROM users;
-sqlite> SELECT id, user_id, filename, size, uploaded_at FROM media ORDER BY id DESC LIMIT 10;
-```
-
-## 10. Accessing the MinIO console
-
-Open `http://localhost:9001` in a browser and log in with the
-`MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` from your `.env` (defaults:
-`minioadmin` / `minioadmin`). You'll see the `photos` bucket with
-objects laid out as:
+## Using `/sync` from Flutter
 
 ```
-photos/
-  <user_id>/
-    <year>/
-      <month>/
-        <media_id>_<filename>
-  thumbnails/
-    <user_id>/<year>/<month>/<media_id>_<filename>.thumb.jpg
+1. First launch: GET /sync?since=0
+   -> store every item locally, remember `server_time` from the response.
+2. Every subsequent sync: GET /sync?since=<last stored server_time>
+   -> apply only the returned media/albums (upsert by id).
+      If an item has "deleted": true, delete it locally instead.
+   -> store the new `server_time`.
+3. If the response has "more": true, immediately call /sync again with
+   the same `since` (there were >1000 changes; it's paginated).
 ```
 
-## Running tests
+This is the same "sync token" pattern Google Drive/Photos, Dropbox, and
+most offline-first apps use — you never have to diff the whole library,
+just replay what changed.
 
-The test suite monkeypatches the MinIO calls, so it runs without a
-real MinIO server:
+## Suggested Flutter-side pieces
 
-```bash
-cd backend
-pytest
-```
+- `dio` or `http` for the API client; store tokens with
+  `flutter_secure_storage`.
+- `sqflite` or `drift` as the local cache that `/sync` writes into —
+  your photo grid reads from this local DB, not the network, so it's
+  instant and works offline.
+- `workmanager` (Android) / `background_fetch` for periodic background
+  camera-roll backup, calling `/media/check` first, then `/media/upload`
+  only for what's missing — mirrors how the real Google Photos app
+  backs up efficiently.
+- `photo_manager` package to enumerate the device's camera roll.
 
-## Security notes (prototype scope)
+## Extending this backend
 
-* Passwords are hashed with PBKDF2 (Werkzeug's `generate_password_hash`),
-  never stored in plaintext.
-* Every `/api/media/*` route requires a valid JWT; the user ID is
-  always read from the token, never trusted from client input.
-* A user can never fetch, download, or delete another user's media —
-  cross-user requests return the same `MEDIA_NOT_FOUND` as a genuinely
-  missing ID, so ownership can't be probed.
-* MinIO credentials live only in `.env` / Flask config; the mobile
-  client never talks to MinIO directly, only to Flask.
-* Uploads are validated by both file extension and MIME type, and are
-  capped by `MAX_CONTENT_LENGTH_MB`.
-* Logout is a real server-side token revocation (a `token_blocklist`
-  table), not just "the client forgets the token."
+- **Video thumbnails**: not wired up (needs `ffmpeg` on the server).
+  In `utils.py`, add an `generate_video_thumbnail()` that shells out to
+  `ffmpeg -i <in> -ss 00:00:01 -vframes 1 <out>.jpg`, and call it from
+  the video branch in `routes/media.py::upload()`.
+- **Face grouping / search**: out of scope here, but this is where
+  you'd add a background job that runs a face-detection model on new
+  uploads and stores embeddings for search.
+- **Resumable/chunked upload**: for very large videos on flaky mobile
+  connections, consider adding a chunked upload protocol (e.g. tus.io)
+  instead of the single-shot multipart upload used here.
+- **Multi-device push**: pair `/sync` with a push notification (FCM) so
+  other devices know to sync immediately rather than polling.
+- **Rate limiting / abuse protection**: add `Flask-Limiter` before
+  exposing this publicly.
 
-## What's intentionally NOT here yet
+## Security notes before you deploy this anywhere public
 
-Per the prototype scope: no albums, sharing, face/AI recognition, OCR,
-video transcoding, signed MinIO URLs, Postgres/Redis, or Kubernetes.
-The goal of this slice is a solid `Flask ⇄ MinIO ⇄ SQLite` core that a
-mobile client can be built against next.
+- Set real, random `SECRET_KEY` and `JWT_SECRET_KEY` values (the
+  `.env.example` placeholders are not safe to use as-is).
+- Put this behind HTTPS — bearer tokens over plain HTTP can be
+  intercepted.
+- The quota check in `/media/upload` is best-effort (checked before
+  disk write, not atomic under heavy concurrency); fine for a personal
+  or small-team deployment, worth hardening with a DB-level lock or
+  advisory lock if you expect many simultaneous uploads per user.

@@ -1,8 +1,0 @@
-Flask==3.0.3
-Flask-SQLAlchemy==3.1.1
-Flask-JWT-Extended==4.6.0
-python-dotenv==1.0.1
-minio==7.2.7
-Pillow==10.4.0
-Werkzeug==3.0.3
-SQLAlchemy==2.0.30
