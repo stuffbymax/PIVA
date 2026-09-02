@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/media_item.dart';
 import '../services/media_service.dart';
@@ -29,16 +30,26 @@ class PhotoGridTile extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (item.thumbnailUrl != null)
-            CachedNetworkImage(
-              imageUrl: item.thumbnailUrl!,
-              httpHeaders: mediaService.authHeaders,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(color: Colors.grey.shade300),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.grey.shade300,
-                child: const Icon(Icons.broken_image_outlined),
-              ),
-            )
+            kIsWeb
+                ? Image.network(
+                    item.thumbnailUrl!,
+                    headers: mediaService.authHeaders,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey.shade300,
+                      child: const Icon(Icons.broken_image_outlined),
+                    ),
+                  )
+                : CachedNetworkImage(
+                    imageUrl: item.thumbnailUrl!,
+                    httpHeaders: mediaService.authHeaders,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(color: Colors.grey.shade300),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.grey.shade300,
+                      child: const Icon(Icons.broken_image_outlined),
+                    ),
+                  )
           else
             Container(
               color: Colors.grey.shade800,

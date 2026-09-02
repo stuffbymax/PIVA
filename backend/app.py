@@ -1,5 +1,6 @@
 import os
 from flask import Flask, jsonify
+from sqlalchemy import inspect, text
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_cors import CORS
 from config import Config
@@ -21,11 +22,13 @@ def create_app(config_class=Config):
     from routes.media import bp as media_bp
     from routes.albums import bp as albums_bp
     from routes.sync import bp as sync_bp
+    from routes.admin import bp as admin_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(media_bp)
     app.register_blueprint(albums_bp)
     app.register_blueprint(sync_bp)
+    app.register_blueprint(admin_bp)
 
     @app.route("/health")
     def health():
@@ -55,25 +58,27 @@ def create_app(config_class=Config):
 
     with app.app_context():
         db.create_all()
-
+        if "is_admin" not in {column["name"] for column in inspect(db.engine).get_columns("users")}:
+            with db.engine.begin() as connection:
+                connection.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
+        if User.query.count() and not User.query.filter_by(is_admin=True).first():
+            first_user = User.query.order_by(User.created_at, User.id).first()
+            first_user.is_admin = True
+            db.session.commit()
     return app
 
 
 app = create_app()
 
-# debug stuff
-# this displays everything in the db
-@app.route("/debug/all")
+#dispays quary in db
+@app.route("/debug/all", methods=["GET"])
+@jwt_required()
 def debug_all():
-    # serch all query in the db and return it as json
-    users = User.query.all()
-    
-    return jsonify(
-        users=[user.to_dict() for user in users]
-
-
-    ), 200 
-
+    """Return safe user records for administrator debugging."""
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    if not user.is_admin:
+        return jsonify(error="Administrator access required."), 403
+    return jsonify(users=[record.to_dict() for record in User.query.all()]), 200
 
 if __name__ == "__main__":
     # debug=False in production; use gunicorn/uwsgi behind nginx for real

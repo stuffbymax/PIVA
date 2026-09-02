@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Thrown for any non-2xx response. [statusCode] lets callers branch on
 /// e.g. 409 (username taken) vs 413 (quota exceeded) without string
@@ -174,18 +174,23 @@ class ApiClient {
   /// a 0.0-1.0 fraction; note plain [http] can't report *streaming*
   /// upload progress, so this reports 0.0 while sending and 1.0 once the
   /// server has responded -- fine for a per-file progress list, not a
-  /// smooth progress bar for one huge video. See README for swapping in
+  /// smooth progress bar for one huge upload. See README for swapping in
   /// `dio` if you need byte-level progress.
   Future<Map<String, dynamic>> uploadFile(
     String path,
-    File file, {
+    XFile file, {
     double? takenAtEpoch,
     void Function(double fraction)? onProgress,
   }) async {
     Future<http.StreamedResponse> attempt() async {
       final request = http.MultipartRequest('POST', _uri(path));
       request.headers.addAll(_headers(json: false));
-      request.files.add(await http.MultipartFile.fromPath('file', file.path));
+      request.files.add(http.MultipartFile(
+        'file',
+        file.openRead(),
+        await file.length(),
+        filename: file.name,
+      ));
       if (takenAtEpoch != null) {
         request.fields['taken_at'] = takenAtEpoch.toString();
       }

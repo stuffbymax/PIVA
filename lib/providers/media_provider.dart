@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/media_item.dart';
 import '../services/media_service.dart';
 
@@ -78,9 +78,9 @@ class MediaProvider extends ChangeNotifier {
   /// Uploads a batch of picked files one at a time (sequential keeps
   /// memory/bandwidth predictable on mobile connections), then refreshes
   /// the grid so newly uploaded items appear.
-  Future<void> uploadFiles(List<File> files) async {
+  Future<void> uploadFiles(List<XFile> files) async {
     for (final file in files) {
-      final task = UploadTask(file.path.split('/').last);
+      final task = UploadTask(file.name);
       uploadTasks.add(task);
       notifyListeners();
       try {

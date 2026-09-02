@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../models/media_item.dart';
 import 'api_client.dart';
 
@@ -43,7 +43,7 @@ class MediaService {
   }
 
   Future<MediaItem> upload(
-    File file, {
+    XFile file, {
     DateTime? takenAt,
     void Function(double fraction)? onProgress,
   }) async {

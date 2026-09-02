@@ -22,7 +22,7 @@ def _uid():
 @jwt_required()
 def upload():
     """
-    Upload a single photo/video.
+    Upload a single photo or video.
 
     Dedup: if this user already uploaded a file with the same content
     (checksum), we don't store it twice -- we just return the existing
@@ -43,7 +43,7 @@ def upload():
     original_filename = secure_filename(file.filename)
     media_type, ext = classify_media(original_filename, file.mimetype)
     if media_type is None:
-        return jsonify(error="Unsupported file type."), 415
+        return jsonify(error="Unsupported media type. Use an image or video."), 415
 
     # Quota check happens before we touch disk.
     file.stream.seek(0, os.SEEK_END)
@@ -68,9 +68,6 @@ def upload():
         thumb_path = os.path.join(current_app.config["THUMBNAIL_FOLDER"], thumb_name)
         if not generate_image_thumbnail(dest_path, thumb_path, current_app.config["THUMBNAIL_SIZE"]):
             thumb_name = None
-    # Video thumbnailing needs ffmpeg, which isn't wired up here -- see
-    # README "Extending this backend" for where to hook it in.
-
     client_taken_at = request.form.get("taken_at", type=float)
     if client_taken_at:
         taken_at = client_taken_at

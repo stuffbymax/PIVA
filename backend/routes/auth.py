@@ -25,7 +25,8 @@ def register():
         return jsonify(error="Username already taken."), 409
 
     user = User(username=username, email=email,
-                quota_bytes=current_app.config["DEFAULT_QUOTA_BYTES"])
+                quota_bytes=current_app.config["DEFAULT_QUOTA_BYTES"],
+                is_admin=User.query.count() == 0)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()

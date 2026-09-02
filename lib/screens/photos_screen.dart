@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -59,16 +58,15 @@ class _PhotosScreenState extends State<PhotosScreen> {
   }
 
   Future<void> _pickAndUpload() async {
-    final picked = await _picker.pickMultiImage(imageQuality: 95);
+    final picked = await _picker.pickMultipleMedia(imageQuality: 95);
     if (picked.isEmpty) return;
-    final files = picked.map((x) => File(x.path)).toList();
-    await _provider.uploadFiles(files);
+    await _provider.uploadFiles(picked);
   }
 
   Future<void> _takePhoto() async {
     final photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 95);
     if (photo == null) return;
-    await _provider.uploadFiles([File(photo.path)]);
+    await _provider.uploadFiles([photo]);
   }
 
   void _toggleSelect(MediaItem item) {

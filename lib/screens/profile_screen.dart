@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_client.dart';
+import 'admin_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -90,6 +91,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text('Server', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(ApiClient.instance.baseUrl ?? '', style: Theme.of(context).textTheme.bodyMedium),
+          if (user?.isAdmin == true) ...[
+            const SizedBox(height: 24),
+            FilledButton.tonalIcon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdminScreen()),
+              ),
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              label: const Text('Administration'),
+            ),
+          ],
           const SizedBox(height: 32),
           OutlinedButton.icon(
             onPressed: _confirmLogout,

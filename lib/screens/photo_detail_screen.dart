@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:video_player/video_player.dart';
 import '../models/media_item.dart';
 import '../providers/media_provider.dart';
 import '../services/media_service.dart';
@@ -88,24 +90,40 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
               minScale: 1,
               maxScale: 4,
               child: Center(
-                child: m.downloadUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: m.downloadUrl!,
-                        httpHeaders: _mediaService.authHeaders,
-                        fit: BoxFit.contain,
-                        placeholder: (context, url) => m.thumbnailUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: m.thumbnailUrl!,
-                                httpHeaders: _mediaService.authHeaders,
-                                fit: BoxFit.contain,
-                              )
-                            : const CircularProgressIndicator(),
-                        errorWidget: (context, url, error) => const Icon(
-                          Icons.broken_image_outlined,
-                          color: Colors.white54,
-                          size: 48,
-                        ),
+                child: m.mediaType == 'video' && m.downloadUrl != null
+                    ? _AuthenticatedVideoPlayer(
+                        url: m.downloadUrl!,
+                        headers: _mediaService.authHeaders,
                       )
+                    : m.downloadUrl != null
+                    ? (kIsWeb
+                        ? Image.network(
+                            m.downloadUrl!,
+                            headers: _mediaService.authHeaders,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white54,
+                              size: 48,
+                            ),
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: m.downloadUrl!,
+                            httpHeaders: _mediaService.authHeaders,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => m.thumbnailUrl != null
+                                ? CachedNetworkImage(
+                                    imageUrl: m.thumbnailUrl!,
+                                    httpHeaders: _mediaService.authHeaders,
+                                    fit: BoxFit.contain,
+                                  )
+                                : const CircularProgressIndicator(),
+                            errorWidget: (context, url, error) => const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white54,
+                              size: 48,
+                            ),
+                          ))
                     : const Icon(Icons.videocam_outlined, color: Colors.white54, size: 64),
               ),
             );
@@ -167,5 +185,57 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       ),
     );
     if (confirmed == true) await provider.deletePermanently(item);
+  }
+}
+
+class _AuthenticatedVideoPlayer extends StatefulWidget {
+  const _AuthenticatedVideoPlayer({required this.url, required this.headers});
+
+  final String url;
+  final Map<String, String> headers;
+
+  @override
+  State<_AuthenticatedVideoPlayer> createState() => _AuthenticatedVideoPlayerState();
+}
+
+class _AuthenticatedVideoPlayerState extends State<_AuthenticatedVideoPlayer> {
+  late final VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.url),
+      httpHeaders: widget.headers,
+    )..initialize().then((_) {
+        if (mounted) setState(() {});
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_controller.value.isInitialized) {
+      if (_controller.value.hasError) {
+        return const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48);
+      }
+      return const CircularProgressIndicator();
+    }
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _controller.value.isPlaying ? _controller.pause() : _controller.play();
+        });
+      },
+      child: AspectRatio(
+        aspectRatio: _controller.value.aspectRatio,
+        child: VideoPlayer(_controller),
+      ),
+    );
   }
 }

@@ -18,6 +18,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     quota_bytes = db.Column(db.BigInteger, nullable=False, default=0)
+    is_admin = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.Float, default=now_ts)
 
     media = db.relationship("Media", backref="owner", lazy="dynamic")
@@ -44,12 +45,13 @@ class User(db.Model):
             "email": self.email,
             "quota_bytes": self.quota_bytes,
             "storage_used_bytes": self.storage_used(),
+            "is_admin": self.is_admin,
         }
 
 
 class Media(db.Model):
     """
-    A single photo or video.
+    A single photo.
 
     Soft-delete model (mirrors Google Photos' Trash):
       is_trashed=True   -> in Trash, still occupies storage, restorable
@@ -72,7 +74,7 @@ class Media(db.Model):
     file_size = db.Column(db.BigInteger, nullable=False, default=0)
     width = db.Column(db.Integer, nullable=True)
     height = db.Column(db.Integer, nullable=True)
-    duration_ms = db.Column(db.Integer, nullable=True)  # videos only
+    duration_ms = db.Column(db.Integer, nullable=True)  # legacy field
 
     checksum = db.Column(db.String(64), nullable=False, index=True)  # sha256, for dedup
 

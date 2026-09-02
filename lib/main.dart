@@ -13,6 +13,49 @@ void main() {
 class PhotoApp extends StatelessWidget {
   const PhotoApp({super.key});
 
+  static const _blue = Color(0xFF1261A0);
+  static const _sky = Color(0xFF4DB8E8);
+
+  ThemeData _theme(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final scheme = ColorScheme.fromSeed(
+      seedColor: _blue,
+      brightness: brightness,
+      primary: _blue,
+      secondary: _sky,
+      surface: dark ? const Color(0xFF101820) : const Color(0xFFF7FBFF),
+    );
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      fontFamily: 'Georgia',
+      scaffoldBackgroundColor: scheme.surface,
+      appBarTheme: AppBarTheme(
+        backgroundColor: dark ? const Color(0xFF0B1117) : Colors.white,
+        foregroundColor: scheme.onSurface,
+        elevation: 2,
+        shadowColor: _blue.withValues(alpha: 0.2),
+        titleTextStyle: TextStyle(
+          color: scheme.onSurface,
+          fontFamily: 'Georgia',
+          fontSize: 21,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: dark ? const Color(0xFF17232E) : Colors.white,
+        elevation: 3,
+        shadowColor: _blue.withValues(alpha: 0.18),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: dark ? const Color(0xFF17232E) : Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(3)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -22,20 +65,8 @@ class PhotoApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Photos',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF4285F4),
-            brightness: Brightness.light,
-          ),
-        ),
-        darkTheme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF4285F4),
-            brightness: Brightness.dark,
-          ),
-        ),
+        theme: _theme(Brightness.light),
+        darkTheme: _theme(Brightness.dark),
         home: const AppRoot(),
       ),
     );

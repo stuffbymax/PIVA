@@ -131,10 +131,3 @@ a real first test pass, not a formality.
   enumerate the device's photo library, call `/media/check` with their
   checksums, and upload whatever's missing — pair with `workmanager`
   (Android) for periodic background backup.
-- **Byte-level upload progress**: the current `uploadFile()` in
-  `api_client.dart` reports 0%/100% only, since plain `http` doesn't
-  expose streaming upload progress. Swap in `dio`, which supports an
-  `onSendProgress` callback, if you want a smooth per-file progress bar
-  for large videos.
-- **Video thumbnails**: the backend doesn't generate them yet either
-  (needs `ffmpeg` server-side) — see its README for the hook point.

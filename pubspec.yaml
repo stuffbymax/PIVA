@@ -20,8 +20,11 @@ dependencies:
   # Secure storage for JWT access/refresh tokens and server URL
   flutter_secure_storage: ^11.0.0
 
-  # Picking photos/videos from the device gallery or camera
+  # Picking photos from the device gallery or camera, plus videos from gallery
   image_picker: ^1.1.2
+
+  # Authenticated photo and video playback
+  video_player: ^2.9.2
 
   # Efficient thumbnail loading/caching from the server
   cached_network_image: ^4.0.0

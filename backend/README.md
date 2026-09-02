@@ -1,8 +1,8 @@
 # Photo Backend (Google Photos–style API)
 
 A Flask REST API backend for a photo-backup app, built for a Flutter
-frontend. It supports upload, delta sync, favorites, trash/restore,
-permanent delete, and albums — the core feature set of Google Photos.
+frontend. It supports image upload, delta sync, favorites, trash/restore,
+permanent delete, albums, and protected administrator endpoints.
 
 This is a from-scratch rewrite, not a patch of the PS3-sharing site you
 shared. That app used server-rendered HTML pages and cookie sessions,
@@ -152,18 +152,23 @@ just replay what changed.
   backs up efficiently.
 - `photo_manager` package to enumerate the device's camera roll.
 
+## Administration
+
+The first registered account becomes an administrator. Authenticated admins
+can use `GET /admin/users`, `GET /admin/stats`, and `PATCH
+/admin/users/<id>` with `quota_bytes` or `is_admin`. Non-admin users receive
+403 responses. Backend signing keys are generated automatically and stored in
+`backend/data/secrets.json`; this file is ignored by git. No dotenv package or
+manual `.env` setup is required.
+
+Uploads accept images and common video formats. Video thumbnails are not
+generated, but videos can be opened and played from the detail viewer.
+
 ## Extending this backend
 
-- **Video thumbnails**: not wired up (needs `ffmpeg` on the server).
-  In `utils.py`, add an `generate_video_thumbnail()` that shells out to
-  `ffmpeg -i <in> -ss 00:00:01 -vframes 1 <out>.jpg`, and call it from
-  the video branch in `routes/media.py::upload()`.
 - **Face grouping / search**: out of scope here, but this is where
   you'd add a background job that runs a face-detection model on new
   uploads and stores embeddings for search.
-- **Resumable/chunked upload**: for very large videos on flaky mobile
-  connections, consider adding a chunked upload protocol (e.g. tus.io)
-  instead of the single-shot multipart upload used here.
 - **Multi-device push**: pair `/sync` with a push notification (FCM) so
   other devices know to sync immediately rather than polling.
 - **Rate limiting / abuse protection**: add `Flask-Limiter` before

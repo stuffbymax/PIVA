@@ -1,13 +1,41 @@
 import os
+import json
+import secrets
 from datetime import timedelta
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SECRETS_PATH = os.path.join(BASE_DIR, "data", "secrets.json")
+
+
+def _load_or_create_secrets():
+    os.makedirs(os.path.dirname(SECRETS_PATH), exist_ok=True)
+    try:
+        with open(SECRETS_PATH, "r", encoding="utf-8") as handle:
+            values = json.load(handle)
+        if values.get("SECRET_KEY") and values.get("JWT_SECRET_KEY"):
+            return values
+    except (OSError, ValueError):
+        pass
+    values = {
+        "SECRET_KEY": secrets.token_urlsafe(32),
+        "JWT_SECRET_KEY": secrets.token_urlsafe(32),
+    }
+    with open(SECRETS_PATH, "w", encoding="utf-8") as handle:
+        json.dump(values, handle, indent=2)
+    try:
+        os.chmod(SECRETS_PATH, 0o600)
+    except OSError:
+        pass
+    return values
+
+
+_generated_secrets = _load_or_create_secrets()
 
 
 class Config:
     # --- Core ---
-    SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "change-me-too")
+    SECRET_KEY = os.environ.get("SECRET_KEY", _generated_secrets["SECRET_KEY"])
+    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", _generated_secrets["JWT_SECRET_KEY"])
 
     # --- Database ---
     SQLALCHEMY_DATABASE_URI = os.environ.get(
@@ -25,7 +53,7 @@ class Config:
     # --- Storage ---
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
     THUMBNAIL_FOLDER = os.path.join(BASE_DIR, "thumbnails")
-    MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500MB per upload (raise for 4K video)
+    MAX_CONTENT_LENGTH = 500 * 1024 * 1024
 
     ALLOWED_IMAGE_EXT = {"jpg", "jpeg", "png", "heic", "webp", "gif", "bmp"}
     ALLOWED_VIDEO_EXT = {"mp4", "mov", "avi", "mkv", "3gp", "webm"}
