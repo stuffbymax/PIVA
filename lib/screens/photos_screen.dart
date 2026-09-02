@@ -240,7 +240,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
           children: [
             const Icon(Icons.cloud_off_outlined, size: 48),
             const SizedBox(height: 8),
-            Text('Could not load photos'),
+            const Text('Could not load photos'),
             const SizedBox(height: 4),
             Text(provider.error!, textAlign: TextAlign.center),
             const SizedBox(height: 12),

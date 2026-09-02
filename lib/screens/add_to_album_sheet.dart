@@ -39,10 +39,12 @@ class _AddToAlbumSheetState extends State<_AddToAlbumSheet> {
   Future<void> _load() async {
     try {
       final albums = await _service.list();
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _albums = albums;
         _loading = false;
       });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
