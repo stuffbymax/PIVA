@@ -1,0 +1,26 @@
+<!--
+  After you run `flutter create .` (see README "Setup"), open the
+  generated ios/Runner/Info.plist and add these keys inside the
+  top-level <dict>.
+-->
+
+<key>NSCameraUsageDescription</key>
+<string>Used to take photos to back up to your photo library.</string>
+
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Used to select photos to back up to your photo library.</string>
+
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>Used to save photos back to your device.</string>
+
+<!--
+  If your backend runs on plain http:// during development, iOS's App
+  Transport Security will block the connection. Either point the app at
+  an https:// URL, or add an ATS exception while developing:
+
+  <key>NSAppTransportSecurity</key>
+  <dict>
+      <key>NSAllowsArbitraryLoads</key>
+      <true/>
+  </dict>
+-->

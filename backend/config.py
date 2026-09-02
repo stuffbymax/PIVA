@@ -6,11 +6,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class Config:
     # --- Core ---
-    '''
-    change these in production, or set them as environment variables
-    to avoid hardcoding secrets in the source code. The default values are
-    insecure and should not be used in a real deployment.
-    '''
     SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "change-me-too")
 
@@ -30,7 +25,6 @@ class Config:
     # --- Storage ---
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
     THUMBNAIL_FOLDER = os.path.join(BASE_DIR, "thumbnails")
-    # this is for testing only
     MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500MB per upload (raise for 4K video)
 
     ALLOWED_IMAGE_EXT = {"jpg", "jpeg", "png", "heic", "webp", "gif", "bmp"}

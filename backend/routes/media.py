@@ -63,7 +63,8 @@ def upload():
 
     if media_type == "photo":
         width, height, taken_at = extract_image_metadata(dest_path)
-        thumb_name = f"thumb_{stored_name}.jpg"
+        stem = os.path.splitext(stored_name)[0]
+        thumb_name = f"thumb_{stem}.jpg"
         thumb_path = os.path.join(current_app.config["THUMBNAIL_FOLDER"], thumb_name)
         if not generate_image_thumbnail(dest_path, thumb_path, current_app.config["THUMBNAIL_SIZE"]):
             thumb_name = None

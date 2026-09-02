@@ -13,7 +13,6 @@ def create_app(config_class=Config):
 
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     os.makedirs(app.config["THUMBNAIL_FOLDER"], exist_ok=True)
-
     CORS(app)
     db.init_app(app)
     jwt.init_app(app)
@@ -66,20 +65,11 @@ app = create_app()
 # this displays everything in the db
 @app.route("/debug/all")
 def debug_all():
+    # serch all query in the db and return it as json
     users = User.query.all()
     
     return jsonify(
-        users=[user.to_dict() for user in users],
-        videos=sum(len(user.videos) for user in users),
-        images=sum(len(user.images) for user in users),
-        total_users=len(users),
-        total_storage=sum(user.storage_used() for user in users),
-        used_storage=sum(user.storage_used() for user in users),
-        free_storage=sum(user.quota_bytes - user.storage_used() for user in users),
-        total_quota=sum(user.quota_bytes for user in users),
-        total_quota_gb=sum(user.quota_bytes for user in users) / (1024 ** 3),
-        deleted_videos = sum(len(user.deleted_videos) for user in users),
-        deleted_images = sum(len(user.deleted_images) for user in users),
+        users=[user.to_dict() for user in users]
 
 
     ), 200 

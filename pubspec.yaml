@@ -1,19 +1,38 @@
-name: "store images"
-description: "image and video storage app."
+name: photo_app
+description: A Google Photos-style client for the Flask photo backend.
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
-  sdk: ^3.12.1
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management
+  provider: ^6.1.2
+
+  # Networking
+  http: ^1.2.2
+
+  # Secure storage for JWT access/refresh tokens and server URL
+  flutter_secure_storage: ^9.2.2
+
+  # Picking photos/videos from the device gallery or camera
+  image_picker: ^1.1.2
+
+  # Efficient thumbnail loading/caching from the server
+  cached_network_image: ^3.4.1
+
+  # Date formatting in the UI
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
