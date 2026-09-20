@@ -51,8 +51,18 @@ class Config:
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=90)
 
     # --- Storage ---
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-    THUMBNAIL_FOLDER = os.path.join(BASE_DIR, "thumbnails")
+    UPLOAD_FOLDER = os.path.abspath(os.path.expanduser(
+        os.environ.get("PIVA_UPLOAD_FOLDER", os.path.join(BASE_DIR, "uploads"))
+    ))
+    IMAGE_UPLOAD_FOLDER = os.path.abspath(os.path.expanduser(
+        os.environ.get("PIVA_IMAGE_FOLDER", UPLOAD_FOLDER)
+    ))
+    VIDEO_UPLOAD_FOLDER = os.path.abspath(os.path.expanduser(
+        os.environ.get("PIVA_VIDEO_FOLDER", UPLOAD_FOLDER)
+    ))
+    THUMBNAIL_FOLDER = os.path.abspath(os.path.expanduser(
+        os.environ.get("PIVA_THUMBNAIL_FOLDER", os.path.join(BASE_DIR, "thumbnails"))
+    ))
     MAX_CONTENT_LENGTH = 500 * 1024 * 1024
 
     ALLOWED_IMAGE_EXT = {"jpg", "jpeg", "png", "heic", "webp", "gif", "bmp"}

@@ -1,5 +1,6 @@
 import hashlib
 import os
+import subprocess
 import uuid
 from PIL import Image, ExifTags
 from flask import current_app
@@ -69,6 +70,28 @@ def generate_image_thumbnail(source_path, thumb_path, size):
             img.thumbnail(size)
             img.save(thumb_path, "JPEG", quality=85)
         return True
+    except Exception:
+        return False
+
+
+def generate_video_thumbnail(source_path, thumb_path, size):
+    """Extract one video frame and resize it to the same JPEG cover format."""
+    try:
+        import imageio_ffmpeg
+
+        width, height = size
+        command = [
+            imageio_ffmpeg.get_ffmpeg_exe(),
+            "-y",
+            "-ss", "0.5",
+            "-i", source_path,
+            "-frames:v", "1",
+            "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease",
+            "-q:v", "3",
+            thumb_path,
+        ]
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 0
     except Exception:
         return False
 

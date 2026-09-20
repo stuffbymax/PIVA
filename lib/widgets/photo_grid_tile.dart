@@ -20,9 +20,10 @@ class PhotoGridTile extends StatelessWidget {
   final bool selected;
   final bool selectionMode;
 
+  static final _mediaService = MediaService();
+
   @override
   Widget build(BuildContext context) {
-    final mediaService = MediaService();
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -33,7 +34,7 @@ class PhotoGridTile extends StatelessWidget {
             kIsWeb
                 ? Image.network(
                     item.thumbnailUrl!,
-                    headers: mediaService.authHeaders,
+                    headers: _mediaService.authHeaders,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: Colors.grey.shade300,
@@ -42,7 +43,7 @@ class PhotoGridTile extends StatelessWidget {
                   )
                 : CachedNetworkImage(
                     imageUrl: item.thumbnailUrl!,
-                    httpHeaders: mediaService.authHeaders,
+                    httpHeaders: _mediaService.authHeaders,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(color: Colors.grey.shade300),
                     errorWidget: (context, url, error) => Container(
@@ -59,10 +60,26 @@ class PhotoGridTile extends StatelessWidget {
               ),
             ),
           if (item.mediaType == 'video')
-            const Positioned(
+            Positioned(
               bottom: 4,
               right: 4,
-              child: Icon(Icons.play_circle_outline, color: Colors.white, size: 20),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (item.durationMs != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      color: Colors.black54,
+                      child: Text(
+                        _formatDuration(item.durationMs!),
+                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                  ],
+                  const Icon(Icons.play_circle_outline, color: Colors.white, size: 20),
+                ],
+              ),
             ),
           if (item.isFavorite)
             const Positioned(
@@ -84,5 +101,11 @@ class PhotoGridTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static String _formatDuration(int milliseconds) {
+    final seconds = (milliseconds / 1000).round();
+    final minutes = seconds ~/ 60;
+    return '${minutes.toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
   }
 }

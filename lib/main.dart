@@ -63,7 +63,7 @@ class PhotoApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()..bootstrap()),
       ],
       child: MaterialApp(
-        title: 'Photos',
+        title: 'PIVA',
         debugShowCheckedModeBanner: false,
         theme: _theme(Brightness.light),
         darkTheme: _theme(Brightness.dark),

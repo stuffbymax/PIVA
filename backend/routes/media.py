@@ -7,7 +7,7 @@ from extensions import db
 from models import Media, User, AlbumMedia
 from utils import (
     sha256_of_file, classify_media, unique_storage_name,
-    extract_image_metadata, generate_image_thumbnail
+    extract_image_metadata, generate_image_thumbnail, generate_video_thumbnail
 )
 
 bp = Blueprint("media", __name__, url_prefix="/media")
@@ -15,6 +15,11 @@ bp = Blueprint("media", __name__, url_prefix="/media")
 
 def _uid():
     return int(get_jwt_identity())
+
+
+def _upload_dir(media_type):
+    key = "VIDEO_UPLOAD_FOLDER" if media_type == "video" else "IMAGE_UPLOAD_FOLDER"
+    return current_app.config[key]
 
 
 # ---------------------------------------------------------------- upload --
@@ -53,7 +58,7 @@ def upload():
         return jsonify(error="Storage quota exceeded."), 413
 
     stored_name = unique_storage_name(ext)
-    dest_path = os.path.join(current_app.config["UPLOAD_FOLDER"], stored_name)
+    dest_path = os.path.join(_upload_dir(media_type), stored_name)
     file.save(dest_path)
     actual_size = os.path.getsize(dest_path)
 
@@ -63,11 +68,16 @@ def upload():
 
     if media_type == "photo":
         width, height, taken_at = extract_image_metadata(dest_path)
-        stem = os.path.splitext(stored_name)[0]
-        thumb_name = f"thumb_{stem}.jpg"
-        thumb_path = os.path.join(current_app.config["THUMBNAIL_FOLDER"], thumb_name)
-        if not generate_image_thumbnail(dest_path, thumb_path, current_app.config["THUMBNAIL_SIZE"]):
-            thumb_name = None
+    stem = os.path.splitext(stored_name)[0]
+    thumb_name = f"thumb_{stem}.jpg"
+    thumb_path = os.path.join(current_app.config["THUMBNAIL_FOLDER"], thumb_name)
+    thumbnail_created = (
+        generate_image_thumbnail(dest_path, thumb_path, current_app.config["THUMBNAIL_SIZE"])
+        if media_type == "photo"
+        else generate_video_thumbnail(dest_path, thumb_path, current_app.config["THUMBNAIL_SIZE"])
+    )
+    if not thumbnail_created:
+        thumb_name = None
     client_taken_at = request.form.get("taken_at", type=float)
     if client_taken_at:
         taken_at = client_taken_at
@@ -153,7 +163,7 @@ def get_media(media_id):
 @jwt_required()
 def get_file(media_id):
     m = Media.query.filter_by(id=media_id, user_id=_uid(), is_deleted=False).first_or_404()
-    return send_from_directory(current_app.config["UPLOAD_FOLDER"], m.filename,
+    return send_from_directory(_upload_dir(m.media_type), m.filename,
                                 as_attachment=False, download_name=m.original_filename)
 
 
@@ -162,7 +172,20 @@ def get_file(media_id):
 def get_thumbnail(media_id):
     m = Media.query.filter_by(id=media_id, user_id=_uid(), is_deleted=False).first_or_404()
     if not m.thumbnail_filename:
-        return jsonify(error="No thumbnail available."), 404
+        stem = os.path.splitext(m.filename)[0]
+        m.thumbnail_filename = f"thumb_{stem}.jpg"
+        thumb_path = os.path.join(current_app.config["THUMBNAIL_FOLDER"], m.thumbnail_filename)
+        source_path = os.path.join(_upload_dir(m.media_type), m.filename)
+        create_thumbnail = (
+            generate_image_thumbnail
+            if m.media_type == "photo"
+            else generate_video_thumbnail
+        )
+        if not create_thumbnail(source_path, thumb_path, current_app.config["THUMBNAIL_SIZE"]):
+            m.thumbnail_filename = None
+            db.session.rollback()
+            return jsonify(error="No thumbnail available."), 404
+        db.session.commit()
     return send_from_directory(current_app.config["THUMBNAIL_FOLDER"], m.thumbnail_filename)
 
 
@@ -237,11 +260,10 @@ def empty_trash():
 
 
 def _remove_files(media):
-    upload_dir = current_app.config["UPLOAD_FOLDER"]
     thumb_dir = current_app.config["THUMBNAIL_FOLDER"]
     if media.filename:
         try:
-            os.remove(os.path.join(upload_dir, media.filename))
+            os.remove(os.path.join(_upload_dir(media.media_type), media.filename))
         except OSError:
             pass
     if media.thumbnail_filename:

@@ -55,6 +55,24 @@ photobackend/
 └── .env.example
 ```
 
+### Custom media paths
+
+By default, originals are stored in `backend/uploads/` and generated
+thumbnails in `backend/thumbnails/`. Set these environment variables to use
+custom server-side locations:
+
+```powershell
+$env:PIVA_IMAGE_FOLDER = 'D:\PIVA\images'
+$env:PIVA_VIDEO_FOLDER = 'D:\PIVA\videos'
+$env:PIVA_THUMBNAIL_FOLDER = 'D:\PIVA\thumbnails'
+python app.py
+```
+
+All directories are created automatically. `PIVA_UPLOAD_FOLDER` can still be
+used as one shared fallback for both media types. The Flutter client uploads
+files from the device gallery or camera; it does not expose arbitrary phone
+filesystem folders.
+
 ## Setup
 
 ```bash
@@ -97,7 +115,7 @@ All endpoints except `/auth/register` and `/auth/login` require:
 | GET | `/media?page=&per_page=&trashed=&favorites=` | Paginated grid |
 | GET | `/media/<id>` | Single item's metadata |
 | GET | `/media/<id>/file` | Download/stream original bytes |
-| GET | `/media/<id>/thumbnail` | JPEG thumbnail (photos only currently) |
+| GET | `/media/<id>/thumbnail` | JPEG thumbnail or video cover frame |
 | POST | `/media/<id>/favorite` | body `{"favorite": true}` or omit to toggle |
 | DELETE | `/media/<id>` | Moves to Trash (soft delete) |
 | POST | `/media/<id>/restore` | Restores from Trash |
@@ -161,8 +179,9 @@ can use `GET /admin/users`, `GET /admin/stats`, and `PATCH
 `backend/data/secrets.json`; this file is ignored by git. No dotenv package or
 manual `.env` setup is required.
 
-Uploads accept images and common video formats. Video thumbnails are not
-generated, but videos can be opened and played from the detail viewer.
+Uploads accept images and common video formats. A JPEG cover frame is
+generated for videos with `imageio-ffmpeg`; videos can also be opened and
+played from the detail viewer.
 
 ## Extending this backend
 

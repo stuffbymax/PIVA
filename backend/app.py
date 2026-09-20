@@ -12,7 +12,8 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    for folder_key in ("UPLOAD_FOLDER", "IMAGE_UPLOAD_FOLDER", "VIDEO_UPLOAD_FOLDER"):
+        os.makedirs(app.config[folder_key], exist_ok=True)
     os.makedirs(app.config["THUMBNAIL_FOLDER"], exist_ok=True)
     CORS(app)
     db.init_app(app)

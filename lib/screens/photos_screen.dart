@@ -58,13 +58,13 @@ class _PhotosScreenState extends State<PhotosScreen> {
   }
 
   Future<void> _pickAndUpload() async {
-    final picked = await _picker.pickMultipleMedia(imageQuality: 95);
+    final picked = await _picker.pickMultipleMedia(imageQuality: 85);
     if (picked.isEmpty) return;
     await _provider.uploadFiles(picked);
   }
 
   Future<void> _takePhoto() async {
-    final photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 95);
+    final photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
     if (photo == null) return;
     await _provider.uploadFiles([photo]);
   }
