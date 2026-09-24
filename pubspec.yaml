@@ -32,6 +32,9 @@ dependencies:
   # Date formatting in the UI
   intl: ^0.20.3
 
+  # Persist the last server sync timestamp across restarts
+  shared_preferences: ^2.3.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

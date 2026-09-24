@@ -26,6 +26,14 @@ class AlbumService {
     return Album.fromJson(body['album'] as Map<String, dynamic>);
   }
 
+  Future<Album> update(int id, {String? name, int? coverMediaId}) async {
+    final payload = <String, dynamic>{};
+    if (name != null) payload['name'] = name;
+    if (coverMediaId != null) payload['cover_media_id'] = coverMediaId;
+    final body = await _api.patchJson('/albums/$id', payload);
+    return Album.fromJson(body['album'] as Map<String, dynamic>);
+  }
+
   Future<void> delete(int id) async {
     await _api.delete('/albums/$id');
   }

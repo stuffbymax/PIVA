@@ -45,6 +45,36 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
     _load();
   }
 
+  Future<void> _renameAlbum() async {
+    final controller = TextEditingController(text: _album?.name ?? '');
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename album'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Album name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    final updated = await _service.update(widget.albumId, name: name);
+    if (mounted) setState(() => _album = updated);
+  }
+
+  Future<void> _setCover(int mediaId) async {
+    final updated = await _service.update(widget.albumId, coverMediaId: mediaId);
+    if (mounted) setState(() => _album = updated);
+  }
+
   Future<void> _deleteAlbum() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -73,6 +103,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
       appBar: AppBar(
         title: Text(_album?.name ?? 'Album'),
         actions: [
+          IconButton(icon: const Icon(Icons.edit_outlined), onPressed: _renameAlbum),
           IconButton(icon: const Icon(Icons.delete_outline), onPressed: _deleteAlbum),
         ],
       ),
@@ -92,15 +123,38 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                       itemCount: _album!.items.length,
                       itemBuilder: (context, i) {
                         final item = _album!.items[i];
+                        final isCover = _album?.coverMediaId == item.id;
                         return GestureDetector(
+                          onTap: () => _setCover(item.id),
                           onLongPress: () => _confirmRemove(item.id),
-                          child: item.thumbnailUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: item.thumbnailUrl!,
-                                  httpHeaders: _mediaService.authHeaders,
-                                  fit: BoxFit.cover,
-                                )
-                              : Container(color: Colors.grey.shade300),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              item.thumbnailUrl != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: item.thumbnailUrl!,
+                                      httpHeaders: _mediaService.authHeaders,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Container(color: Colors.grey.shade300),
+                              if (isCover)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.primary,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: const Text(
+                                      'Cover',
+                                      style: TextStyle(color: Colors.white, fontSize: 10),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         );
                       },
                     ),

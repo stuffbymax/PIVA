@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/media_item.dart';
 import '../services/media_service.dart';
+import '../services/sync_service.dart';
 
 class UploadTask {
   final String label;
@@ -20,6 +21,7 @@ class MediaProvider extends ChangeNotifier {
   final bool trashed;
   final bool favoritesOnly;
   final _service = MediaService();
+  final _syncService = SyncService();
 
   final List<MediaItem> items = [];
   bool loading = false;
@@ -36,6 +38,11 @@ class MediaProvider extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
+      final lastSync = await _syncService.lastServerTime();
+      final delta = await _syncService.fetchDelta(since: lastSync);
+      _applySyncDelta(delta);
+      await _syncService.saveServerTime(delta.serverTime);
+
       _page = 1;
       final result = await _service.list(
         page: _page,
@@ -51,6 +58,24 @@ class MediaProvider extends ChangeNotifier {
     } finally {
       loading = false;
       notifyListeners();
+    }
+  }
+
+  void _applySyncDelta(SyncDelta delta) {
+    for (final media in delta.media) {
+      final index = items.indexWhere((item) => item.id == media.id);
+      if (index >= 0) {
+        items[index] = media;
+      } else if (!trashed && (!favoritesOnly || media.isFavorite)) {
+        items.insert(0, media);
+      }
+    }
+
+    for (final item in items.toList()) {
+      final exists = delta.media.any((media) => media.id == item.id);
+      if (!exists && item.deleted) {
+        items.remove(item);
+      }
     }
   }
 

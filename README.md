@@ -9,7 +9,7 @@ This repository contains both halves of the project:
 - Flutter app in the root: a mobile-first client that handles auth, uploads, browsing, and album actions.
 - Python backend in `backend/`: a Flask REST API that stores media, manages users, and serves thumbnails and download endpoints.
 
-The app is intended for local/self-hosted usage and focuses on a simple, understandable architecture rather than enterprise complexity.
+The app is intended for local/self-hosted usage and focuses on a simple, understandable architecture rather than enterprise complexity.a
 
 ## Features
 
